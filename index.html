@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Délégation & RGPD — Mini-Jeu FORMECHO</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#1a3557;--blue:#2563eb;--blue-l:#dbeafe;--blue-m:#3b82f6;
+  --teal:#0891b2;--teal-l:#e0f2fe;
+  --green:#15803d;--green-l:#dcfce7;--green-m:#16a34a;
+  --red:#dc2626;--red-l:#fee2e2;--red-m:#ef4444;
+  --amber:#b45309;--amber-l:#fef3c7;--amber-m:#f59e0b;
+  --slate:#334155;--muted:#64748b;
+  --bg:#eef4fb;--white:#fff;
+  --r:16px;
+  --shadow:0 10px 40px rgba(26,53,87,.13);
+}
+body{font-family:'Nunito',sans-serif;background:var(--bg);min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;padding:18px 14px 48px;}
+
+/* ── Top bar ── */
+.topbar{width:100%;max-width:700px;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.logo{font-size:13px;font-weight:900;letter-spacing:.6px;color:var(--navy);display:flex;align-items:center;gap:7px;}
+.logo-box{width:26px;height:26px;border-radius:7px;background:var(--navy);display:flex;align-items:center;justify-content:center;}
+.logo-box svg{width:14px;height:14px;}
+.score-bar{display:flex;align-items:center;gap:8px;}
+.score-lbl{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.4px;}
+.score-val{font-size:16px;font-weight:900;color:var(--navy);}
+.score-stars span{font-size:15px;opacity:.25;transition:opacity .3s,transform .3s;}
+.score-stars span.lit{opacity:1;transform:scale(1.2);}
+
+/* ── Progress ── */
+.progress-wrap{width:100%;max-width:700px;margin-bottom:14px;}
+.progress-steps{display:flex;gap:6px;}
+.pstep{flex:1;height:6px;border-radius:3px;background:#d1dff5;transition:background .4s;}
+.pstep.done{background:var(--green-m);}
+.pstep.active{background:var(--blue);}
+.pstep.wrong-done{background:var(--red);}
+
+/* ── Card ── */
+.card{width:100%;max-width:700px;background:var(--white);border-radius:24px;
+  box-shadow:var(--shadow);overflow:hidden;transition:transform .25s;}
+
+/* ── Scene ── */
+.scene{height:220px;position:relative;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;}
+.scene-bg{position:absolute;inset:0;transition:background .5s;}
+.scene svg{position:relative;z-index:2;width:100%;max-width:580px;}
+
+/* animations */
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+@keyframes pop{0%{transform:scale(0);opacity:1}80%{transform:scale(1.2);opacity:1}100%{transform:scale(1);opacity:0}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes spin-slow{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+@keyframes slide-in-r{from{transform:translateX(30px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slide-in-l{from{transform:translateX(-30px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes dash{to{stroke-dashoffset:-20}}
+
+.cursor-blink{animation:blink 1s steps(1) infinite;}
+.float-el{animation:float 2s ease-in-out infinite;}
+.pulse-el{animation:pulse 1.2s ease-in-out infinite;}
+.spin-el{animation:spin-slow 3s linear infinite;transform-origin:center;}
+.dash-el{stroke-dasharray:6 4;animation:dash 1s linear infinite;}
+
+/* ── Body ── */
+.body{padding:22px 26px 26px;}
+.scene-counter{font-size:11px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+.scene-tag{font-size:11px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--teal);margin-bottom:9px;}
+.question{font-size:18px;font-weight:800;color:var(--navy);line-height:1.45;margin-bottom:22px;}
+
+/* ── Buttons ── */
+.btn-row{display:flex;gap:12px;}
+.btn{flex:1;padding:15px 10px;border:none;cursor:pointer;border-radius:14px;
+  font-family:inherit;font-weight:900;font-size:21px;letter-spacing:.4px;
+  transition:transform .1s,box-shadow .15s,opacity .15s;position:relative;}
+.btn:active:not(:disabled){transform:scale(.96);}
+.btn-oui{background:var(--green-m);color:#fff;box-shadow:0 4px 18px rgba(22,163,74,.3);}
+.btn-oui:hover:not(:disabled){box-shadow:0 6px 26px rgba(22,163,74,.42);}
+.btn-non{background:var(--red);color:#fff;box-shadow:0 4px 18px rgba(220,38,38,.28);}
+.btn-non:hover:not(:disabled){box-shadow:0 6px 26px rgba(220,38,38,.4);}
+.btn-sub{display:block;font-size:11px;font-weight:600;opacity:.85;margin-top:3px;}
+.btn:disabled{opacity:.45;cursor:default;}
+.btn-chosen{outline:4px solid rgba(255,255,255,.6);}
+
+/* ── Answer ── */
+.answer-wrap{margin-top:22px;display:none;opacity:0;transform:translateY(12px);transition:opacity .4s,transform .4s;}
+.answer-wrap.visible{display:block;}
+.answer-wrap.shown{opacity:1;transform:translateY(0);}
+
+.verdict-bar{display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px 14px 0 0;}
+.verdict-bar.ok{background:var(--green-l);}
+.verdict-bar.ko{background:var(--red-l);}
+.verdict-badge{font-size:13px;font-weight:900;letter-spacing:.5px;border-radius:10px;padding:7px 16px;flex-shrink:0;}
+.verdict-badge.ok{background:var(--green-m);color:#fff;}
+.verdict-badge.ko{background:var(--red);color:#fff;}
+.verdict-text{font-size:14px;font-weight:700;line-height:1.45;}
+.verdict-text.ok{color:var(--green);}
+.verdict-text.ko{color:var(--red);}
+
+.expl-body{background:#f8fafc;border-radius:0 0 14px 14px;padding:16px 20px 20px;border:1px solid #e9f0f9;border-top:none;}
+.sec-title{font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;margin:14px 0 8px;}
+.sec-title.navy{color:var(--navy);}
+.sec-title.amber{color:var(--amber);}
+.sec-title.teal{color:var(--teal);}
+.sec-title.red{color:var(--red);}
+.sec-title:first-child{margin-top:0;}
+
+.rule{display:flex;gap:10px;align-items:flex-start;border-radius:10px;padding:10px 13px;margin-bottom:6px;font-size:13.5px;line-height:1.55;}
+.rule.ok{background:#f0fdf4;color:#166534;}
+.rule.no{background:#fef2f2;color:#991b1b;}
+.rule.warn{background:#fffbeb;color:#92400e;}
+.rule.info{background:#eff6ff;color:#1e40af;}
+.rule.slate{background:#f1f5f9;color:#334155;}
+.rule-ico{flex-shrink:0;font-size:15px;margin-top:1px;}
+
+.steps{counter-reset:step;list-style:none;padding:0;}
+.steps li{counter-increment:step;display:flex;align-items:flex-start;gap:10px;
+  padding:9px 12px;border-radius:10px;margin-bottom:5px;font-size:13.5px;line-height:1.5;background:#f1f5f9;color:#1e3a5f;}
+.steps li::before{content:counter(step);flex-shrink:0;width:22px;height:22px;border-radius:50%;
+  background:var(--blue);color:#fff;font-size:12px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;margin-top:1px;}
+.steps li.warn-step{background:#fffbeb;color:#92400e;}
+.steps li.warn-step::before{background:var(--amber-m);}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;}
+.g-card{border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.5;}
+.g-card strong{display:block;font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px;opacity:.65;}
+.g-card.blk{background:#fef2f2;color:#991b1b;}
+.g-card.ok{background:#f0fdf4;color:#166534;}
+
+.letter-box{background:#f8fafc;border:1px solid #dde6f0;border-left:4px solid var(--navy);border-radius:0 10px 10px 0;
+  padding:14px 16px;margin-top:4px;font-size:12.5px;line-height:1.65;color:#2d3b4e;font-style:italic;}
+.letter-box strong{font-style:normal;display:block;margin-bottom:6px;font-size:12px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--navy);}
+
+/* ── Nav bottom ── */
+.nav-bar{display:flex;align-items:center;justify-content:space-between;margin-top:22px;gap:10px;}
+.btn-nav{background:transparent;border:2px solid var(--blue-l);color:var(--blue);
+  border-radius:10px;padding:10px 20px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;
+  transition:background .15s,border-color .15s;display:flex;align-items:center;gap:6px;}
+.btn-nav:hover{background:var(--blue-l);}
+.btn-nav:disabled{opacity:.35;cursor:default;}
+.btn-nav.primary{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:0 3px 14px rgba(37,99,235,.3);}
+.btn-nav.primary:hover{background:#1d4ed8;border-color:#1d4ed8;}
+.btn-nav.primary:disabled{background:var(--blue-l);border-color:var(--blue-l);color:var(--blue);box-shadow:none;}
+
+/* ── Final screen ── */
+.final-screen{display:none;width:100%;max-width:700px;text-align:center;padding:40px 30px;}
+.final-screen.active{display:block;}
+.final-emoji{font-size:64px;margin-bottom:16px;}
+.final-title{font-size:26px;font-weight:900;color:var(--navy);margin-bottom:10px;}
+.final-sub{font-size:15px;color:var(--muted);line-height:1.6;margin-bottom:28px;}
+.final-score{display:inline-flex;align-items:center;gap:8px;background:var(--navy);color:#fff;
+  border-radius:16px;padding:12px 28px;font-size:20px;font-weight:900;margin-bottom:28px;}
+.btn-restart{background:var(--blue);color:#fff;border:none;border-radius:12px;padding:13px 32px;
+  font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 18px rgba(37,99,235,.3);
+  transition:transform .1s,box-shadow .15s;}
+.btn-restart:hover{box-shadow:0 6px 26px rgba(37,99,235,.4);}
+.btn-restart:active{transform:scale(.97);}
+
+/* ── Notif ── */
+.notif{position:fixed;top:14px;left:50%;transform:translateX(-50%) translateY(-90px);
+  padding:11px 22px;border-radius:12px;font-weight:800;font-size:14px;color:#fff;
+  box-shadow:0 4px 20px rgba(0,0,0,.18);transition:transform .35s cubic-bezier(.22,.68,0,1.3);
+  z-index:99;white-space:nowrap;pointer-events:none;}
+.notif.show{transform:translateX(-50%) translateY(0);}
+.notif.good{background:var(--green-m);}
+.notif.bad{background:var(--red);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-box">
+      <svg viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="white" stroke-width="1.4"/><path d="M4 7h6M7 4v6" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>
+    </div>
+    FORMECHO
+  </div>
+  <div class="score-bar">
+    <span class="score-lbl">SCORE</span>
+    <span class="score-val" id="score-val">0/4</span>
+    <div class="score-stars" id="score-stars">
+      <span>★</span><span>★</span><span>★</span><span>★</span>
+    </div>
+  </div>
+</div>
+
+<div class="progress-wrap">
+  <div class="progress-steps" id="progress-steps">
+    <div class="pstep active" id="p0"></div>
+    <div class="pstep" id="p1"></div>
+    <div class="pstep" id="p2"></div>
+    <div class="pstep" id="p3"></div>
+  </div>
+</div>
+
+<!-- Game card -->
+<div class="card" id="game-card">
+  <div class="scene" id="scene">
+    <div class="scene-bg" id="scene-bg"></div>
+    <!-- SVG injected by JS -->
+  </div>
+  <div class="body" id="card-body">
+    <div class="scene-counter" id="scene-counter"></div>
+    <div class="scene-tag" id="scene-tag"></div>
+    <div class="question" id="question"></div>
+    <div class="btn-row">
+      <button class="btn btn-oui" id="btn-oui" onclick="answer('oui')">
+        OUI<span class="btn-sub" id="oui-sub"></span>
+      </button>
+      <button class="btn btn-non" id="btn-non" onclick="answer('non')">
+        NON<span class="btn-sub" id="non-sub"></span>
+      </button>
+    </div>
+    <div class="answer-wrap" id="answer-wrap">
+      <div class="verdict-bar" id="verdict-bar">
+        <div class="verdict-badge" id="verdict-badge"></div>
+        <div class="verdict-text" id="verdict-text"></div>
+      </div>
+      <div class="expl-body" id="expl-body"></div>
+    </div>
+    <div class="nav-bar">
+      <button class="btn-nav" id="btn-prev" onclick="goTo(currentScenario-1)" disabled>← Précédent</button>
+      <button class="btn-nav primary" id="btn-next" onclick="goNext()" disabled>Suivant →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Final screen -->
+<div class="final-screen" id="final-screen">
+  <div class="final-emoji" id="final-emoji">🎓</div>
+  <div class="final-title" id="final-title"></div>
+  <div class="final-sub" id="final-sub"></div>
+  <div class="final-score" id="final-score"></div>
+  <br><br>
+  <button class="btn-restart" onclick="restartGame()">↺ Recommencer le module</button>
+</div>
+
+<div class="notif" id="notif"></div>
+
+<script>
+const scenarios = [
+
+// ─────────────────────────────────────────────────────────────
+// SITUATION 1 — Accès dossier secrétaire
+// ─────────────────────────────────────────────────────────────
+{
+  tag: "Accès aux données",
+  counter: "Situation 1 · Module Délégation & RGPD",
+  question: "Votre secrétaire doit-elle avoir accès au dossier médical complet des patientes ?",
+  ouiSub: "Accès total nécessaire",
+  nonSub: "Accès restreint",
+  correct: "non",
+  correctLabel: "NON",
+  sceneBg: "linear-gradient(160deg,#e8f4ff 0%,#d0e7ff 100%)",
+  sceneAfterBg: { oui:"linear-gradient(160deg,#ffe8e8 0%,#ffd0d0 100%)", non:"linear-gradient(160deg,#e8fff2 0%,#d0ffe8 100%)" },
+  scene: `
+    <svg viewBox="0 0 560 190" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax meet">
+      <!-- floor -->
+      <rect x="0" y="158" width="560" height="32" rx="0" fill="#b8d5f0"/>
+      <!-- desk -->
+      <rect x="60" y="140" width="440" height="18" rx="7" fill="#7aaddc"/>
+      <rect x="80" y="158" width="12" height="28" rx="3" fill="#5a94c8"/>
+      <rect x="468" y="158" width="12" height="28" rx="3" fill="#5a94c8"/>
+      <!-- monitor -->
+      <rect x="200" y="75" width="120" height="68" rx="8" fill="#1e3a5f" opacity=".9"/>
+      <rect x="206" y="81" width="108" height="54" rx="5" fill="#0f2744"/>
+      <rect x="214" y="89" width="55" height="5" rx="2" fill="#4a9eff" opacity=".5"/>
+      <rect x="214" y="98" width="82" height="3" rx="1.5" fill="#4a9eff" opacity=".2"/>
+      <rect x="214" y="104" width="70" height="3" rx="1.5" fill="#4a9eff" opacity=".2"/>
+      <rect x="214" y="110" width="76" height="3" rx="1.5" fill="#4a9eff" opacity=".2"/>
+      <rect class="cursor-blink" x="225" y="118" width="2" height="9" rx="1" fill="#4a9eff" opacity=".8"/>
+      <rect x="254" y="143" width="12" height="9" rx="2" fill="#7aaddc"/>
+      <rect x="246" y="140" width="28" height="4" rx="2" fill="#5a94c8"/>
+      <!-- folder ADMIN (blue/green) -->
+      <rect x="78" y="98" width="54" height="46" rx="5" fill="#3b82f6"/>
+      <rect x="78" y="98" width="54" height="14" rx="5" fill="#2563eb"/>
+      <rect x="78" y="106" width="54" height="6" fill="#2563eb"/>
+      <text x="105" y="113" text-anchor="middle" font-family="Nunito,sans-serif" font-size="5.5" font-weight="800" fill="white" letter-spacing=".4">ADMIN</text>
+      <rect x="88" y="120" width="34" height="2.5" rx="1.5" fill="white" opacity=".3"/>
+      <rect x="88" y="125" width="26" height="2.5" rx="1.5" fill="white" opacity=".3"/>
+      <rect x="88" y="130" width="30" height="2.5" rx="1.5" fill="white" opacity=".3"/>
+      <circle id="s1-admin-ico" cx="105" cy="139" r="6.5" fill="#16a34a"/>
+      <path d="M101.5 139l2.5 2.5 6-6" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <!-- folder MEDICAL (red/lock) -->
+      <rect x="428" y="98" width="54" height="46" rx="5" fill="#ef4444"/>
+      <rect x="428" y="98" width="54" height="14" rx="5" fill="#dc2626"/>
+      <rect x="428" y="106" width="54" height="6" fill="#dc2626"/>
+      <text x="455" y="113" text-anchor="middle" font-family="Nunito,sans-serif" font-size="5.2" font-weight="800" fill="white" letter-spacing=".3">MÉDICAL</text>
+      <rect x="438" y="120" width="34" height="2.5" rx="1.5" fill="white" opacity=".3"/>
+      <rect x="438" y="125" width="26" height="2.5" rx="1.5" fill="white" opacity=".3"/>
+      <rect x="438" y="130" width="30" height="2.5" rx="1.5" fill="white" opacity=".3"/>
+      <g id="s1-lock">
+        <circle cx="455" cy="139" r="6.5" fill="#fbbf24"/>
+        <rect x="451.5" y="137.5" width="7" height="5.5" rx="1" fill="#1e3a5f"/>
+        <path d="M452.5 137.5v-2.5a2.5 2.5 0 015 0v2.5" stroke="#1e3a5f" stroke-width="1.3" fill="none"/>
+      </g>
+      <g id="s1-check" opacity="0">
+        <circle cx="455" cy="139" r="6.5" fill="#16a34a"/>
+        <path d="M451.5 139l2.5 2.5 6-6" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </g>
+      <g id="s1-cross" opacity="0">
+        <circle cx="455" cy="139" r="6.5" fill="#dc2626"/>
+        <path d="M452 136l6 6M458 136l-6 6" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      </g>
+      <!-- person/secretary -->
+      <circle cx="320" cy="99" r="16" fill="#fde68a"/>
+      <path d="M304 96c0-8.8 7.2-16 16-16s16 7.2 16 16v4h-32v-4z" fill="#b45309"/>
+      <rect x="308" y="96" width="7" height="5" rx="2.5" fill="none" stroke="#1e3a5f" stroke-width="1.2"/>
+      <rect x="317" y="96" width="7" height="5" rx="2.5" fill="none" stroke="#1e3a5f" stroke-width="1.2"/>
+      <line x1="315" y1="98.5" x2="317" y2="98.5" stroke="#1e3a5f" stroke-width="1"/>
+      <path d="M315 104 q5 3 10 0" stroke="#92400e" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+      <rect x="308" y="115" width="24" height="27" rx="8" fill="#fbbf24"/>
+      <path d="M308 120 Q294 125 286 132" stroke="#fbbf24" stroke-width="5" stroke-linecap="round" fill="none"/>
+      <path d="M332 122 Q342 127 348 134" stroke="#fbbf24" stroke-width="5" stroke-linecap="round" fill="none"/>
+      <!-- floating ? -->
+      <g id="s1-q" class="float-el">
+        <circle cx="320" cy="53" r="15" fill="white" opacity=".9"/>
+        <text x="320" y="59.5" text-anchor="middle" font-family="Nunito,sans-serif" font-size="19" font-weight="900" fill="#2563eb">?</text>
+      </g>
+      <!-- stars (success) -->
+      <g id="s1-stars" opacity="0" style="transition:opacity .4s">
+        <circle cx="455" cy="72" r="5" fill="#fbbf24"/>
+        <circle cx="472" cy="58" r="3.5" fill="#fbbf24"/>
+        <circle cx="438" cy="63" r="3" fill="#fbbf24"/>
+      </g>
+    </svg>`,
+  onAnswer: (choice) => {
+    document.getElementById('s1-q').style.transition='opacity .3s';
+    document.getElementById('s1-q').style.opacity='0';
+    if(choice==='non'){
+      document.getElementById('s1-lock').style.transition='opacity .3s';
+      document.getElementById('s1-lock').style.opacity='0';
+      setTimeout(()=>{document.getElementById('s1-check').style.transition='opacity .3s';document.getElementById('s1-check').style.opacity='1';},320);
+      document.getElementById('s1-stars').style.opacity='1';
+    } else {
+      document.getElementById('s1-cross').style.transition='opacity .3s';
+      document.getElementById('s1-cross').style.opacity='1';
+      document.getElementById('s1-lock').style.transition='opacity .3s';
+      document.getElementById('s1-lock').style.opacity='0';
+    }
+  },
+  verdictOk: "Exact ! L'accès au dossier médical doit être restreint, même pour la secrétaire.",
+  verdictKo: "La bonne réponse est NON. Voici les règles à respecter :",
+  expl: `
+    <div class="sec-title navy">📋 Principe fondamental</div>
+    <div class="rule ok"><span class="rule-ico">✅</span><span>La secrétaire accède aux <strong>données administratives</strong> uniquement : nom, coordonnées, agenda, facturation.</span></div>
+    <div class="rule no"><span class="rule-ico">🚫</span><span>Aucun accès aux <strong>données médicales</strong> : antécédents, diagnostics, comptes-rendus d'échographie.</span></div>
+    <div class="sec-title amber">⚠️ Exception possible</div>
+    <div class="rule warn"><span class="rule-ico">📌</span><span>Une secrétaire <strong>médicale formée et habilitée</strong> peut avoir un accès étendu (CR, pré-remplissage) — limité aux données strictement nécessaires + traçabilité renforcée.</span></div>
+    <div class="sec-title teal">🖥️ Configuration logiciel recommandée</div>
+    <div class="grid2">
+      <div class="g-card ok"><strong>✅ Accès autorisé</strong>Identité · Coordonnées · Agenda · Facturation</div>
+      <div class="g-card blk"><strong>🚫 Accès bloqué</strong>Antécédents · Examens · Comptes-rendus</div>
+    </div>
+    <div class="rule info" style="margin-top:8px"><span class="rule-ico">💡</span><span>Créez un profil <strong>«&nbsp;Secrétaire&nbsp;»</strong> avec droits restreints et traçabilité des accès activée dans votre logiciel.</span></div>`
+},
+
+// ─────────────────────────────────────────────────────────────
+// SITUATION 2 — Demande d'info par la famille
+// ─────────────────────────────────────────────────────────────
+{
+  tag: "Secret médical",
+  counter: "Situation 2 · Module Délégation & RGPD",
+  question: "Une personne se présentant comme la mère d'une patiente vous demande des informations sur le rendez-vous de sa fille majeure. Pouvez-vous lui répondre ?",
+  ouiSub: "C'est sa mère",
+  nonSub: "Secret médical",
+  correct: "non",
+  correctLabel: "REFUS",
+  sceneBg: "linear-gradient(160deg,#fdf4e8 0%,#fbe8cc 100%)",
+  sceneAfterBg: { oui:"linear-gradient(160deg,#ffe8e8 0%,#ffd0d0 100%)", non:"linear-gradient(160deg,#e8fff2 0%,#d0ffe8 100%)" },
+  scene: `
+    <svg viewBox="0 0 560 190" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax meet">
+      <!-- floor -->
+      <rect x="0" y="158" width="560" height="32" fill="#e8d8c0"/>
+      <!-- counter / accueil -->
+      <rect x="150" y="128" width="260" height="30" rx="6" fill="#c4a882"/>
+      <rect x="150" y="120" width="260" height="14" rx="4" fill="#b8997a"/>
+      <!-- computer at desk -->
+      <rect x="230" y="78" width="100" height="44" rx="6" fill="#1e3a5f" opacity=".85"/>
+      <rect x="236" y="84" width="88" height="32" rx="4" fill="#0f2744"/>
+      <rect x="244" y="90" width="42" height="4" rx="2" fill="#4a9eff" opacity=".4"/>
+      <rect x="244" y="97" width="68" height="2.5" rx="1.5" fill="#4a9eff" opacity=".2"/>
+      <rect x="244" y="102" width="55" height="2.5" rx="1.5" fill="#4a9eff" opacity=".2"/>
+      <rect x="273" y="122" width="14" height="6" rx="2" fill="#c4a882"/>
+      <rect x="266" y="120" width="28" height="4" rx="2" fill="#b8997a"/>
+      <!-- shield / verrou RGPD -->
+      <g id="s2-shield" class="float-el">
+        <path d="M280 52 L290 56 L290 68 Q290 76 280 80 Q270 76 270 68 L270 56 Z" fill="#2563eb" opacity=".9"/>
+        <path d="M276 66 l3 3 6-7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </g>
+      <!-- SECRÉTAIRE (right of counter) -->
+      <circle cx="342" cy="103" r="14" fill="#d1fae5"/>
+      <path d="M328 100c0-7.7 6.3-14 14-14s14 6.3 14 14v3h-28v-3z" fill="#6ee7b7"/>
+      <rect x="335" y="100" width="6.5" height="4.5" rx="2" fill="none" stroke="#1e3a5f" stroke-width="1"/>
+      <rect x="343" y="100" width="6.5" height="4.5" rx="2" fill="none" stroke="#1e3a5f" stroke-width="1"/>
+      <path d="M338 107 q4 2.5 8 0" stroke="#065f46" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+      <rect x="330" y="117" width="24" height="24" rx="7" fill="#d1fae5"/>
+      <!-- speech bubble secrétaire (non) -->
+      <g id="s2-bubble-sec" opacity="0" style="transition:opacity .4s">
+        <rect x="356" y="75" width="92" height="32" rx="8" fill="white" stroke="#16a34a" stroke-width="1.5"/>
+        <polygon points="360,95 352,102 368,95" fill="white"/>
+        <polygon points="360,95 352,102 368,95" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-linejoin="round"/>
+        <text x="402" y="88" text-anchor="middle" font-family="Nunito,sans-serif" font-size="8.5" font-weight="800" fill="#166534">Secret médical,</text>
+        <text x="402" y="100" text-anchor="middle" font-family="Nunito,sans-serif" font-size="8.5" font-weight="800" fill="#166534">désolée…</text>
+      </g>
+      <!-- MÈRE (left) -->
+      <circle cx="190" cy="100" r="14" fill="#fde68a"/>
+      <path d="M176 97c0-7.7 6.3-14 14-14s14 6.3 14 14v3h-28v-3z" fill="#f59e0b"/>
+      <path d="M186 107 q4 2 8 0" stroke="#92400e" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+      <rect x="183" y="114" width="14" height="5" rx="2.5" fill="#92400e"/>
+      <rect x="178" y="114" width="28" height="22" rx="7" fill="#fde68a"/>
+      <!-- speech bubble mère -->
+      <g class="float-el">
+        <rect x="60" y="72" width="108" height="34" rx="8" fill="white" stroke="#f59e0b" stroke-width="1.5"/>
+        <polygon points="163,82 175,90 163,90" fill="white"/>
+        <polygon points="163,82 175,90 163,90" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-linejoin="round"/>
+        <text x="114" y="86" text-anchor="middle" font-family="Nunito,sans-serif" font-size="8" font-weight="800" fill="#92400e">Quel est le RDV</text>
+        <text x="114" y="97" text-anchor="middle" font-family="Nunito,sans-serif" font-size="8" font-weight="800" fill="#92400e">de ma fille ?</text>
+      </g>
+      <!-- wrong arrow (wrong answer) -->
+      <g id="s2-wrong-arrow" opacity="0" style="transition:opacity .4s">
+        <path d="M214 116 Q240 116 268 110" stroke="#dc2626" stroke-width="2" stroke-dasharray="5 3" fill="none" marker-end="url(#arr-red2)"/>
+        <text x="240" y="108" text-anchor="middle" font-family="Nunito,sans-serif" font-size="8" font-weight="700" fill="#dc2626">VIOLATION !</text>
+      </g>
+      <defs>
+        <marker id="arr-red2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+    </svg>`,
+  onAnswer: (choice) => {
+    document.getElementById('s2-shield').style.animation='none';
+    if(choice==='non'){
+      document.getElementById('s2-bubble-sec').style.opacity='1';
+    } else {
+      document.getElementById('s2-wrong-arrow').style.opacity='1';
+    }
+  },
+  verdictOk: "Exact ! Le secret médical s'applique à toute la famille. Même un parent ne peut obtenir d'informations sans accord écrit de la patiente majeure.",
+  verdictKo: "La bonne réponse est NON. Divulguer des informations sans accord est une violation du secret médical.",
+  expl: `
+    <div class="sec-title navy">📋 Procédure stricte</div>
+    <ol class="steps">
+      <li>❌ Ne jamais confirmer qu'une personne est patiente du cabinet — même pas "oui, elle a un RDV"</li>
+      <li>✅ Répondre poliment : <em>"Par respect du secret médical, je ne peux communiquer aucune information sans l'accord écrit de l'intéressée"</em></li>
+      <li>✅ Si insistance : <em>"Je peux prendre vos coordonnées et la patiente vous contactera si elle le souhaite"</em></li>
+      <li>✅ Informer immédiatement la sage-femme responsable</li>
+    </ol>
+    <div class="sec-title amber">⚠️ Exception : patiente mineure</div>
+    <div class="rule warn"><span class="rule-ico">👪</span><span>Les parents ont accès aux informations, <strong>sauf opposition de la mineure</strong> (art. L.1111-5 CSP). Vérifier systématiquement l'identité (CNI + livret de famille).</span></div>
+    <div class="sec-title red">🚨 Cas particulier : conjoint violent / séparation conflictuelle</div>
+    <div class="rule no"><span class="rule-ico">🔒</span><span>La patiente peut demander un <strong>secret renforcé</strong> : aucune information transmissible à quiconque. À noter dans le dossier et à communiquer à toute l'équipe.</span></div>`
+},
+
+// ─────────────────────────────────────────────────────────────
+// SITUATION 3 — Télétravail
+// ─────────────────────────────────────────────────────────────
+{
+  tag: "Télétravail & sécurité",
+  counter: "Situation 3 · Module Délégation & RGPD",
+  question: "Votre secrétaire souhaite travailler 2 jours par semaine depuis son domicile. Est-ce possible ?",
+  ouiSub: "Sous conditions",
+  nonSub: "Interdit",
+  correct: "oui",
+  correctLabel: "OUI",
+  sceneBg: "linear-gradient(160deg,#e8f0ff 0%,#d8eaff 100%)",
+  sceneAfterBg: { oui:"linear-gradient(160deg,#e8fff2 0%,#d0ffe8 100%)", non:"linear-gradient(160deg,#ffe8e8 0%,#ffd0d0 100%)" },
+  scene: `
+    <svg viewBox="0 0 560 190" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax meet">
+      <!-- floor -->
+      <rect x="0" y="158" width="560" height="32" fill="#bfd4f5"/>
+      <!-- house outline -->
+      <path d="M60 158 L60 90 L160 40 L260 90 L260 158 Z" fill="#dce9fa" stroke="#7aaddc" stroke-width="1.5"/>
+      <path d="M60 90 L160 40 L260 90" fill="none" stroke="#7aaddc" stroke-width="2.5" stroke-linejoin="round"/>
+      <!-- window -->
+      <rect x="100" y="105" width="35" height="30" rx="4" fill="#b3d4f5" stroke="#7aaddc" stroke-width="1"/>
+      <line x1="117.5" y1="105" x2="117.5" y2="135" stroke="#7aaddc" stroke-width="1"/>
+      <line x1="100" y1="120" x2="135" y2="120" stroke="#7aaddc" stroke-width="1"/>
+      <!-- door -->
+      <rect x="178" y="120" width="28" height="38" rx="4" fill="#8bb8e8" stroke="#5a94c8" stroke-width="1"/>
+      <circle cx="182" cy="140" r="2.5" fill="#4a7ac0"/>
+      <!-- desk inside house -->
+      <rect x="168" y="112" width="72" height="10" rx="4" fill="#c4a882"/>
+      <!-- laptop -->
+      <rect x="178" y="96" width="52" height="36" rx="5" fill="#1e3a5f" opacity=".85"/>
+      <rect x="183" y="101" width="42" height="24" rx="3" fill="#0f2744"/>
+      <rect x="190" y="107" width="24" height="3" rx="1.5" fill="#4a9eff" opacity=".4"/>
+      <rect x="190" y="113" width="32" height="2" rx="1" fill="#4a9eff" opacity=".2"/>
+      <rect x="190" y="118" width="28" height="2" rx="1" fill="#4a9eff" opacity=".2"/>
+      <!-- person at desk -->
+      <circle cx="280" cy="103" r="14" fill="#fde68a"/>
+      <path d="M266 100c0-7.7 6.3-14 14-14s14 6.3 14 14v3h-28v-3z" fill="#b45309"/>
+      <path d="M276 110 q4 2 8 0" stroke="#92400e" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+      <rect x="268" y="117" width="24" height="22" rx="7" fill="#fde68a"/>
+      <path d="M268 122 Q256 126 250 133" stroke="#fde68a" stroke-width="5" stroke-linecap="round" fill="none"/>
+      <!-- VPN shield (animated, then locked/checked) -->
+      <g id="s3-vpn" class="float-el" style="transform-origin:360px 80px">
+        <rect x="336" y="58" width="54" height="54" rx="14" fill="#2563eb" opacity=".12"/>
+        <path d="M363 62 L375 67 L375 81 Q375 91 363 96 Q351 91 351 81 L351 67 Z" fill="#2563eb"/>
+        <text x="363" y="83" text-anchor="middle" font-family="Nunito,sans-serif" font-size="9" font-weight="900" fill="white">VPN</text>
+      </g>
+      <!-- check on VPN (correct) -->
+      <g id="s3-vpn-ok" opacity="0" style="transition:opacity .4s">
+        <circle cx="395" cy="62" r="10" fill="#16a34a"/>
+        <path d="M390.5 62l3 3 7-7" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </g>
+      <!-- danger (wrong) -->
+      <g id="s3-danger" opacity="0" style="transition:opacity .4s">
+        <circle cx="363" cy="130" r="10" fill="#dc2626"/>
+        <text x="363" y="135" text-anchor="middle" font-family="Nunito,sans-serif" font-size="13" font-weight="900" fill="white">!</text>
+      </g>
+      <!-- WIFI signal -->
+      <g id="s3-wifi" class="float-el">
+        <path d="M430 85 Q444 72 458 85" stroke="#3b82f6" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".7"/>
+        <path d="M435 92 Q444 83 453 92" stroke="#3b82f6" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".85"/>
+        <circle cx="444" cy="100" r="3.5" fill="#3b82f6"/>
+        <path d="M424 78 Q444 60 464 78" stroke="#3b82f6" stroke-width="2" fill="none" stroke-linecap="round" opacity=".4"/>
+      </g>
+      <!-- lock on wifi if wrong -->
+      <g id="s3-wifi-lock" opacity="0" style="transition:opacity .4s">
+        <rect x="436" y="105" width="16" height="13" rx="3" fill="#dc2626"/>
+        <path d="M439 105v-3a5 5 0 0110 0v3" stroke="#dc2626" stroke-width="1.5" fill="none"/>
+        <rect x="441.5" y="109" width="5" height="4" rx="1" fill="white" opacity=".7"/>
+      </g>
+    </svg>`,
+  onAnswer: (choice) => {
+    if(choice==='oui'){
+      document.getElementById('s3-vpn-ok').style.opacity='1';
+    } else {
+      document.getElementById('s3-vpn').style.opacity='.3';
+      document.getElementById('s3-vpn').style.animation='none';
+      document.getElementById('s3-wifi').style.animation='none';
+      document.getElementById('s3-danger').style.opacity='1';
+      document.getElementById('s3-wifi-lock').style.opacity='1';
+    }
+  },
+  verdictOk: "Exact ! Le télétravail est possible mais uniquement sous conditions strictes de sécurité.",
+  verdictKo: "La bonne réponse est OUI — mais sous conditions strictes. Voici les mesures obligatoires :",
+  expl: `
+    <div class="sec-title navy">🔒 Connexion sécurisée</div>
+    <div class="rule ok"><span class="rule-ico">✅</span><span>VPN fourni par un prestataire certifié pour se connecter au réseau du cabinet.</span></div>
+    <div class="rule no"><span class="rule-ico">❌</span><span>Jamais de connexion directe via internet public.</span></div>
+    <div class="sec-title navy">💻 Matériel</div>
+    <div class="rule ok"><span class="rule-ico">✅</span><span>Ordinateur <strong>professionnel fourni par le cabinet</strong>, antivirus à jour, disque dur chiffré.</span></div>
+    <div class="rule no"><span class="rule-ico">❌</span><span>Interdiction formelle d'utiliser un <strong>ordinateur personnel</strong>.</span></div>
+    <div class="sec-title navy">🏠 Environnement de travail</div>
+    <div class="rule ok"><span class="rule-ico">✅</span><span>Pièce fermée, écran non visible de l'extérieur, verrouillage systématique en cas d'absence.</span></div>
+    <div class="sec-title red">🚫 Interdictions absolues</div>
+    <div class="rule no"><span class="rule-ico">❌</span><span>Aucun stockage de données sur l'ordinateur (travail uniquement en ligne).</span></div>
+    <div class="rule no"><span class="rule-ico">❌</span><span>Aucune impression de document contenant des données de santé.</span></div>
+    <div class="rule no"><span class="rule-ico">❌</span><span>Aucune sauvegarde sur clé USB ou disque externe.</span></div>
+    <div class="sec-title teal">📄 Charte obligatoire</div>
+    <div class="rule info"><span class="rule-ico">📝</span><span>Rédiger une <strong>charte de télétravail signée</strong> par le salarié, avec audits réguliers et clause de retour en cas de non-respect. Référence : <strong>Guide CNIL du télétravail</strong>.</span></div>`
+},
+
+// ─────────────────────────────────────────────────────────────
+// SITUATION 4 — Départ d'un collaborateur
+// ─────────────────────────────────────────────────────────────
+{
+  tag: "Fin de contrat",
+  counter: "Situation 4 · Module Délégation & RGPD",
+  question: "Votre secrétaire quitte le cabinet en bons termes. La procédure formelle de sécurité au départ est-elle obligatoire malgré tout ?",
+  ouiSub: "Toujours obligatoire",
+  nonSub: "Pas nécessaire",
+  correct: "oui",
+  correctLabel: "OUI",
+  sceneBg: "linear-gradient(160deg,#f0e8ff 0%,#e4d8ff 100%)",
+  sceneAfterBg: { oui:"linear-gradient(160deg,#e8fff2 0%,#d0ffe8 100%)", non:"linear-gradient(160deg,#ffe8e8 0%,#ffd0d0 100%)" },
+  scene: `
+    <svg viewBox="0 0 560 190" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax meet">
+      <!-- floor -->
+      <rect x="0" y="158" width="560" height="32" fill="#c8b8e8"/>
+      <!-- office wall -->
+      <rect x="40" y="45" width="480" height="113" rx="0" fill="#f0eaf8"/>
+      <!-- door exit -->
+      <rect x="440" y="80" width="68" height="78" rx="6" fill="#d4c8ee" stroke="#9f85d0" stroke-width="1.5"/>
+      <circle cx="445" cy="122" r="3" fill="#7c5cbf"/>
+      <path d="M440 80 L440 65 L508 65 L508 80" fill="#c4b4e4" stroke="#9f85d0" stroke-width="1"/>
+      <text x="474" y="60" text-anchor="middle" font-family="Nunito,sans-serif" font-size="8" font-weight="800" fill="#7c5cbf" letter-spacing=".4">SORTIE</text>
+      <!-- arrow to door -->
+      <path id="s4-arrow" d="M370 130 L434 130" stroke="#6d28d9" stroke-width="2.5" stroke-dasharray="6 4" fill="none" marker-end="url(#arr-purple)"/>
+      <defs>
+        <marker id="arr-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="#6d28d9" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+      <!-- person leaving with box -->
+      <g id="s4-person">
+        <circle cx="338" cy="102" r="14" fill="#fde68a"/>
+        <path d="M324 99c0-7.7 6.3-14 14-14s14 6.3 14 14v3h-28v-3z" fill="#d97706"/>
+        <path d="M334 108 q4 2 8 0" stroke="#92400e" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+        <rect x="326" y="116" width="24" height="22" rx="7" fill="#fde68a"/>
+        <!-- box -->
+        <rect x="322" y="130" width="32" height="24" rx="4" fill="#d97706"/>
+        <rect x="322" y="130" width="32" height="8" rx="4" fill="#b45309"/>
+        <line x1="338" y1="130" x2="338" y2="154" stroke="#92400e" stroke-width="1"/>
+        <text x="338" y="148" text-anchor="middle" font-family="Nunito,sans-serif" font-size="6" font-weight="800" fill="white">📦</text>
+      </g>
+      <!-- computer at desk (blocked) -->
+      <rect x="80" y="85" width="110" height="70" rx="7" fill="#7c5cbf" opacity=".15"/>
+      <rect x="100" y="90" width="90" height="56" rx="6" fill="#1e3a5f" opacity=".88"/>
+      <rect x="106" y="96" width="78" height="42" rx="4" fill="#0f2744"/>
+      <!-- ACCÈS BLOQUÉ on screen -->
+      <rect x="114" y="103" width="62" height="21" rx="4" fill="#dc2626" opacity=".9" id="s4-block-badge"/>
+      <text x="145" y="113" text-anchor="middle" font-family="Nunito,sans-serif" font-size="7.5" font-weight="900" fill="white" id="s4-block-text">ACCÈS</text>
+      <text x="145" y="121" text-anchor="middle" font-family="Nunito,sans-serif" font-size="7.5" font-weight="900" fill="white" id="s4-block-text2">RÉVOQUÉ</text>
+      <!-- checkmarks list (appear after correct answer) -->
+      <g id="s4-checks" opacity="0" style="transition:opacity .5s">
+        <rect x="56" y="48" width="90" height="70" rx="8" fill="white" opacity=".9"/>
+        <text x="101" y="62" text-anchor="middle" font-family="Nunito,sans-serif" font-size="7" font-weight="800" fill="#1e3a5f">PROCÉDURE</text>
+        <text x="68" y="76" font-family="Nunito,sans-serif" font-size="7" font-weight="700" fill="#16a34a">✓ Accès désactivés</text>
+        <text x="68" y="87" font-family="Nunito,sans-serif" font-size="7" font-weight="700" fill="#16a34a">✓ Matériel récupéré</text>
+        <text x="68" y="98" font-family="Nunito,sans-serif" font-size="7" font-weight="700" fill="#16a34a">✓ Lettre signée</text>
+        <text x="68" y="109" font-family="Nunito,sans-serif" font-size="7" font-weight="700" fill="#16a34a">✓ Traçabilité</text>
+      </g>
+      <!-- danger sign (wrong answer) -->
+      <g id="s4-danger" opacity="0" style="transition:opacity .4s">
+        <circle cx="280" cy="55" r="18" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+        <text x="280" y="63" text-anchor="middle" font-family="Nunito,sans-serif" font-size="22" font-weight="900" fill="#d97706">!</text>
+      </g>
+      <!-- floating question -->
+      <g id="s4-q" class="float-el">
+        <circle cx="480" cy="53" r="14" fill="white" opacity=".9"/>
+        <text x="480" y="59" text-anchor="middle" font-family="Nunito,sans-serif" font-size="17" font-weight="900" fill="#6d28d9">?</text>
+      </g>
+    </svg>`,
+  onAnswer: (choice) => {
+    document.getElementById('s4-q').style.transition='opacity .3s';
+    document.getElementById('s4-q').style.opacity='0';
+    if(choice==='oui'){
+      document.getElementById('s4-checks').style.opacity='1';
+    } else {
+      document.getElementById('s4-danger').style.opacity='1';
+    }
+  },
+  verdictOk: "Exact ! La procédure est obligatoire dans tous les cas, même lors d'un départ en bons termes. Un ancien salarié dispose encore de ses accès jusqu'à leur révocation.",
+  verdictKo: "La bonne réponse est OUI. La procédure est obligatoire — négliger cette étape expose le cabinet à de graves risques.",
+  expl: `
+    <div class="sec-title red">🔴 Actions immédiates (jour du départ)</div>
+    <ol class="steps">
+      <li>Bloquer le compte utilisateur dans tous les logiciels — changer les mots de passe partagés — révoquer les accès VPN et messagerie.</li>
+      <li class="">Récupérer tout le matériel : ordinateur, téléphone, clés du cabinet, badge, documents papier.</li>
+      <li>Remettre un <strong>rappel écrit de l'obligation de confidentialité</strong> signé pour réception.</li>
+      <li>Consigner toutes ces actions dans un registre avec preuves (accusé de réception, mail de désactivation…).</li>
+    </ol>
+    <div class="sec-title teal">📄 Modèle de lettre de rappel</div>
+    <div class="letter-box">
+      <strong>Rappel de l'obligation de confidentialité</strong>
+      Madame, Monsieur,<br>
+      Lors de votre départ le [date], nous vous rappelons que l'obligation de confidentialité et de secret professionnel <strong>persiste après la cessation de votre contrat, sans limitation de durée</strong>. Vous restez tenu(e) de ne divulguer aucune information concernant les patientes, l'organisation du cabinet ou les données confidentielles dont vous avez eu connaissance. Toute violation demeure passible de sanctions pénales (art. 226-13 du Code pénal).<br><br>
+      Fait à _______, le _______ — Signature employeur / Signature salarié(e)
+    </div>
+    <div class="rule warn" style="margin-top:10px"><span class="rule-ico">⚠️</span><span>Ne jamais négliger cette procédure, <strong>même en cas de départ en bons termes</strong>. Un ancien salarié mécontent peut être tenté de divulguer des informations.</span></div>`
+}
+
+]; // end scenarios
+
+// ─────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────
+let currentScenario = 0;
+let answered = false;
+let score = 0;
+const results = [null, null, null, null]; // true=correct, false=wrong
+
+function init(){
+  loadScenario(0);
+}
+
+function loadScenario(idx){
+  currentScenario = idx;
+  answered = false;
+  const s = scenarios[idx];
+
+  // scene
+  document.getElementById('scene-bg').style.background = s.sceneBg;
+  document.getElementById('scene').innerHTML = '<div class="scene-bg" id="scene-bg" style="background:'+s.sceneBg+'"></div>' + s.scene;
+
+  // text
+  document.getElementById('scene-counter').textContent = s.counter;
+  document.getElementById('scene-tag').textContent = '❓ ' + s.tag;
+  document.getElementById('question').textContent = s.question;
+  document.getElementById('oui-sub').textContent = s.ouiSub;
+  document.getElementById('non-sub').textContent = s.nonSub;
+
+  // buttons
+  const boui = document.getElementById('btn-oui');
+  const bnon = document.getElementById('btn-non');
+  boui.disabled = false; bnon.disabled = false;
+  boui.classList.remove('btn-chosen'); bnon.classList.remove('btn-chosen');
+
+  // answer panel
+  const aw = document.getElementById('answer-wrap');
+  aw.classList.remove('visible','shown');
+  aw.style.display='none';
+
+  // nav
+  document.getElementById('btn-prev').disabled = (idx === 0);
+  updateNextBtn();
+
+  // progress
+  updateProgress();
+}
+
+function answer(choice){
+  if(answered) return;
+  answered = true;
+  const s = scenarios[currentScenario];
+  const isCorrect = choice === s.correct;
+
+  results[currentScenario] = isCorrect;
+  if(isCorrect) score++;
+
+  // scene bg change
+  document.getElementById('scene-bg').style.background = s.sceneAfterBg[choice];
+
+  // scene animation
+  if(s.onAnswer) s.onAnswer(choice);
+
+  // button feedback
+  const boui = document.getElementById('btn-oui');
+  const bnon = document.getElementById('btn-non');
+  boui.disabled = true; bnon.disabled = true;
+  if(choice==='oui') boui.classList.add('btn-chosen');
+  else bnon.classList.add('btn-chosen');
+
+  // notification
+  showNotif(isCorrect);
+
+  // reveal answer
+  setTimeout(()=> showAnswer(isCorrect, s), 600);
+
+  // update score display
+  updateScoreDisplay();
+  updateProgress();
+}
+
+function showAnswer(isCorrect, s){
+  const vbar = document.getElementById('verdict-bar');
+  const vbadge = document.getElementById('verdict-badge');
+  const vtext = document.getElementById('verdict-text');
+  const expl = document.getElementById('expl-body');
+
+  vbar.className = 'verdict-bar ' + (isCorrect ? 'ok' : 'ko');
+  vbadge.className = 'verdict-badge ' + (isCorrect ? 'ok' : 'ko');
+  vbadge.textContent = isCorrect ? '✓ ' + s.correctLabel : '✗ ' + s.correctLabel;
+  vtext.className = 'verdict-text ' + (isCorrect ? 'ok' : 'ko');
+  vtext.textContent = isCorrect ? s.verdictOk : s.verdictKo;
+  expl.innerHTML = s.expl;
+
+  const aw = document.getElementById('answer-wrap');
+  aw.style.display = 'block';
+  aw.classList.add('visible');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>aw.classList.add('shown')));
+
+  // enable next
+  updateNextBtn();
+}
+
+function updateNextBtn(){
+  const btn = document.getElementById('btn-next');
+  const isLast = currentScenario === scenarios.length - 1;
+  if(!answered){
+    btn.disabled = true;
+    btn.textContent = 'Suivant →';
+    btn.className = 'btn-nav primary';
+  } else if(isLast){
+    btn.disabled = false;
+    btn.textContent = 'Voir mes résultats 🎓';
+    btn.className = 'btn-nav primary';
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Situation suivante →';
+    btn.className = 'btn-nav primary';
+  }
+}
+
+function goNext(){
+  if(!answered) return;
+  if(currentScenario === scenarios.length - 1){
+    showFinal();
+  } else {
+    goTo(currentScenario + 1);
+  }
+}
+
+function goTo(idx){
+  if(idx < 0 || idx >= scenarios.length) return;
+  loadScenario(idx);
+  // if this scenario was already answered, re-show result
+  if(results[idx] !== null){
+    // re-run answer display silently
+    const s = scenarios[idx];
+    answered = true;
+    const isCorrect = results[idx];
+    document.getElementById('scene-bg').style.background = isCorrect ? s.sceneAfterBg[s.correct] : s.sceneAfterBg[s.correct==='oui'?'non':'oui'];
+    if(s.onAnswer) s.onAnswer(isCorrect ? s.correct : (s.correct==='oui'?'non':'oui'));
+    const boui = document.getElementById('btn-oui');
+    const bnon = document.getElementById('btn-non');
+    boui.disabled = true; bnon.disabled = true;
+    const chosenBtn = isCorrect ? (s.correct==='oui'?boui:bnon) : (s.correct==='oui'?bnon:boui);
+    chosenBtn.classList.add('btn-chosen');
+    // show answer panel immediately
+    const aw = document.getElementById('answer-wrap');
+    showAnswer(isCorrect, s);
+    aw.classList.remove('shown');
+    aw.style.opacity='1';aw.style.transform='none';
+    requestAnimationFrame(()=>requestAnimationFrame(()=>aw.classList.add('shown')));
+  }
+  updateProgress();
+}
+
+function updateProgress(){
+  for(let i=0;i<4;i++){
+    const p = document.getElementById('p'+i);
+    p.className = 'pstep';
+    if(i===currentScenario) p.classList.add('active');
+    else if(results[i]===true) p.classList.add('done');
+    else if(results[i]===false) p.classList.add('wrong-done');
+  }
+}
+
+function updateScoreDisplay(){
+  const correct = results.filter(r=>r===true).length;
+  const answered = results.filter(r=>r!==null).length;
+  document.getElementById('score-val').textContent = correct + '/' + answered;
+  const stars = document.querySelectorAll('.score-stars span');
+  stars.forEach((s,i)=>{ s.classList.toggle('lit', i < correct); });
+}
+
+function showFinal(){
+  document.getElementById('game-card').style.display='none';
+  document.getElementById('progress-wrap').style.display='none';
+  const fs = document.getElementById('final-screen');
+  fs.classList.add('active');
+
+  const correct = results.filter(r=>r===true).length;
+  let emoji='', title='', sub='';
+  if(correct===4){emoji='🏆';title='Excellent ! Score parfait !';sub='Vous maîtrisez parfaitement les règles de délégation et de protection des données dans votre cabinet d\'échographie.';}
+  else if(correct>=3){emoji='🎓';title='Très bien !';sub='Vous avez une bonne maîtrise des règles RGPD. Revoyez la situation où vous avez hésité pour consolider vos connaissances.';}
+  else if(correct>=2){emoji='📚';title='À approfondir';sub='Quelques points importants à revoir. Reprenez le module pour vous assurer de la sécurité de votre cabinet et de la protection de vos patientes.';}
+  else{emoji='💡';title='Formation recommandée';sub='Ces situations nécessitent une révision complète. Une formation FORMECHO vous aidera à sécuriser vos pratiques de délégation.';}
+
+  document.getElementById('final-emoji').textContent = emoji;
+  document.getElementById('final-title').textContent = title;
+  document.getElementById('final-sub').textContent = sub;
+  document.getElementById('final-score').innerHTML = '★ ' + correct + '/4 situations maîtrisées';
+}
+
+function restartGame(){
+  score=0;
+  results.fill(null);
+  currentScenario=0;
+  answered=false;
+  updateScoreDisplay();
+  document.getElementById('score-val').textContent='0/4';
+  document.querySelectorAll('.score-stars span').forEach(s=>s.classList.remove('lit'));
+  document.getElementById('game-card').style.display='';
+  document.getElementById('progress-wrap').style.display='';
+  document.getElementById('final-screen').classList.remove('active');
+  loadScenario(0);
+}
+
+function showNotif(isCorrect){
+  const n = document.getElementById('notif');
+  n.className = 'notif ' + (isCorrect?'good':'bad');
+  n.textContent = isCorrect ? '✓ Bonne réponse !' : '✗ Pas tout à fait — voici pourquoi…';
+  n.classList.add('show');
+  setTimeout(()=>n.classList.remove('show'), 2600);
+}
+
+// Start
+init();
+</script>
+</body>
+</html>
